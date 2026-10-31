@@ -6,19 +6,19 @@ use shaxmat_core::{Color as Side, Position, Square};
 
 use crate::app::{App, Setup};
 use crate::assets::Assets;
+use crate::effects::Effects;
 use crate::layout::{
-    self, BOARD_SIZE, BOARD_X, BOARD_Y, CELL, DIALOG, DIALOG_CANCEL, DIALOG_START, PANEL_WIDTH,
-    PANEL_X, Rect as Area, SCREEN_HEIGHT, SCREEN_WIDTH,
+    self, BOARD_SIZE, BOARD_X, BOARD_Y, CELL, DIALOG, DIALOG_CANCEL, DIALOG_START, PANEL_X,
+    Rect as Area, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 use crate::palette::{Palette, with_alpha};
 use crate::session::destination;
 
-const MOVE_ROWS: usize = 9;
+const MOVE_ROWS: usize = 8;
 const ROW_HEIGHT: f32 = 14.0;
 const NUMBER_COLUMN: f32 = 0.0;
 const WHITE_COLUMN: f32 = 32.0;
 const BLACK_COLUMN: f32 = 112.0;
-const TARGET_DOT: f32 = 6.0;
 
 const SELECTED_ALPHA: f32 = 0.7;
 const LAST_MOVE_ALPHA: f32 = 0.55;
@@ -49,7 +49,7 @@ impl Renderer {
     }
 
     /// Draws a frame into the buffer.
-    pub fn draw(&self, app: &App) {
+    pub fn draw(&self, app: &App, effects: &Effects) {
         let mut camera = Camera2D::from_display_rect(macroquad::math::Rect::new(
             0.0,
             0.0,
@@ -60,13 +60,17 @@ impl Renderer {
         set_camera(&camera);
 
         clear_background(self.palette.navy);
-        self.draw_board(app);
+        self.draw_board(app, effects);
         self.draw_panel(app);
+        effects.draw();
+        if let Some((x, y)) = effects.banner_text_at() {
+            self.text(app.strings().brilliant, x, y, self.palette.gold);
+        }
         if let Some((_, to)) = app.session.promotion() {
             self.draw_promotion_menu(app, to);
         }
         if let Some(setup) = &app.setup {
-            self.draw_dialog(setup);
+            self.draw_dialog(app, setup);
         }
     }
 
@@ -91,7 +95,7 @@ impl Renderer {
         );
     }
 
-    fn draw_board(&self, app: &App) {
+    fn draw_board(&self, app: &App, effects: &Effects) {
         let session = &app.session;
         let palette = &self.palette;
         let flipped = session.flipped();
@@ -127,18 +131,8 @@ impl Renderer {
             fill(layout::square_rect(square, flipped), color);
         }
         for (square, piece) in position.board().iter() {
-            self.draw_piece(layout::square_rect(square, flipped), piece);
-        }
-        for &square in session.targets() {
-            let rect = layout::square_rect(square, flipped);
-            if position.board().piece_at(square).is_some() {
-                outline(rect, palette.gold);
-            } else {
-                let offset = (CELL - TARGET_DOT) / 2.0;
-                let (x, y) = (rect.x + offset, rect.y + offset);
-                draw_rectangle(x, y, TARGET_DOT, TARGET_DOT, palette.ink);
-                let inner = TARGET_DOT - 2.0;
-                draw_rectangle(x + 1.0, y + 1.0, inner, inner, palette.gold);
+            if !effects.scene.hides(usize::from(square) as u8) {
+                self.draw_piece(layout::square_rect(square, flipped), piece);
             }
         }
         self.draw_coordinates(flipped);
@@ -182,23 +176,22 @@ impl Renderer {
         let palette = &self.palette;
         let dim = with_alpha(palette.sky, 1.0);
         self.text(
-            &format!("SHAXMAT, уровень {}", session.level),
+            &format!("SHAXMAT, {} {}", app.strings().level_title, session.level),
             PANEL_X,
             BOARD_Y + 10.0,
             palette.gold,
         );
-        let side = match session.human {
-            Side::White => "белыми",
-            Side::Black => "чёрными",
+        let side_line = match session.human {
+            Side::White => app.strings().playing_white,
+            Side::Black => app.strings().playing_black,
         };
-        self.text(&format!("Вы играете {side}"), PANEL_X, BOARD_Y + 24.0, dim);
+        self.text(side_line, PANEL_X, BOARD_Y + 24.0, dim);
         self.text(&app.status_line(), PANEL_X, BOARD_Y + 38.0, palette.cream);
         if let Some(notice) = app.notice {
-            let x = PANEL_X + PANEL_WIDTH - self.width(notice);
-            self.text(notice, x, BOARD_Y + 24.0, palette.gold);
+            self.text(notice, PANEL_X, BOARD_Y + 52.0, palette.gold);
         }
 
-        let list_y = BOARD_Y + 54.0;
+        let list_y = BOARD_Y + 66.0;
         for (i, (number, white, black)) in app.move_rows(MOVE_ROWS).iter().enumerate() {
             let y = list_y + i as f32 * ROW_HEIGHT;
             let label = format!("{number}.");
@@ -207,7 +200,7 @@ impl Renderer {
             self.text(black, PANEL_X + BLACK_COLUMN, y, palette.cream);
         }
 
-        for (_, label, rect) in layout::panel_buttons() {
+        for (_, label, rect) in layout::panel_buttons(app.strings()) {
             self.button(rect, label, false);
         }
     }
@@ -221,28 +214,28 @@ impl Renderer {
         }
     }
 
-    fn draw_dialog(&self, setup: &Setup) {
+    fn draw_dialog(&self, app: &App, setup: &Setup) {
+        let s = app.strings();
         let palette = &self.palette;
         let screen = Area::new(0.0, 0.0, SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32);
         fill(screen, with_alpha(palette.ink, DIM_ALPHA));
         fill(DIALOG, palette.navy);
         outline(DIALOG, palette.gold);
-        self.text(
-            "Новая партия",
-            DIALOG.x + 8.0,
-            DIALOG.y + 15.0,
-            palette.gold,
-        );
-        self.text("Уровень бота", DIALOG.x + 8.0, DIALOG.y + 30.0, palette.sky);
+        self.text(s.new_game, DIALOG.x + 8.0, DIALOG.y + 15.0, palette.gold);
+        self.text(s.bot_level, DIALOG.x + 8.0, DIALOG.y + 30.0, palette.sky);
         for (level, rect) in layout::level_buttons() {
             self.button(rect, &level.to_string(), level == setup.level);
         }
-        self.text("Ваш цвет", DIALOG.x + 8.0, DIALOG.y + 73.0, palette.sky);
-        for (side, label, rect) in layout::side_buttons() {
+        self.text(s.your_side, DIALOG.x + 8.0, DIALOG.y + 73.0, palette.sky);
+        for (side, label, rect) in layout::side_buttons(s) {
             self.button(rect, label, side == setup.human);
         }
-        self.button(DIALOG_CANCEL, "Отмена", false);
-        self.button(DIALOG_START, "Начать", false);
+        self.text(s.language, DIALOG.x + 8.0, DIALOG.y + 109.0, palette.sky);
+        for (language, rect) in layout::language_buttons() {
+            self.button(rect, language.code(), language == app.language);
+        }
+        self.button(DIALOG_CANCEL, s.cancel, false);
+        self.button(DIALOG_START, s.start, false);
     }
 
     fn button(&self, rect: Area, label: &str, active: bool) {

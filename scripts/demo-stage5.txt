@@ -1,0 +1,73 @@
+# Run from the repository root: cargo run -p shaxmat-game --bin shaxmat -- --demo scripts/demo-stage5.txt
+frames 3
+point 300 202
+frames 9
+shot records/stage5-game-01-iris.png
+frames 40
+
+game 3 white
+click e2
+frames 8
+shot records/stage5-game-02-select.png
+click e2
+
+game 1 white r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3
+click f3
+click e5
+frames 12
+shot records/stage5-game-03-capture.png
+frames 40
+
+game 1 white r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1
+click e1
+click g1
+frames 10
+shot records/stage5-game-04-castle-out.png
+frames 16
+shot records/stage5-game-05-castle-in.png
+frames 30
+
+game 1 white 4k3/8/8/8/8/8/8/R3K3 w - - 0 1
+click a1
+click a8
+frames 8
+shot records/stage5-game-06-check.png
+frames 50
+
+game 1 white 6k1/P7/8/8/8/8/8/4K3 w - - 0 1
+click a7
+click a8
+promote q
+frames 16
+shot records/stage5-game-07-promotion.png
+frames 50
+
+game 1 white
+frames 2
+fx hint b1 c3
+frames 8
+shot records/stage5-game-08-hint-knight.png
+fx hint d2 d4
+frames 8
+shot records/stage5-game-09-hint-pawn.png
+fx clear-hint
+fx blunder e4
+frames 12
+shot records/stage5-game-10-blunder.png
+frames 30
+fx brilliant e4
+frames 30
+shot records/stage5-game-11-brilliant.png
+frames 90
+
+game 1 white 6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1
+click a1
+click a8
+frames 25
+shot records/stage5-game-12-mate-a.png
+frames 35
+shot records/stage5-game-13-mate-b.png
+frames 60
+shot records/stage5-game-14-mate-c.png
+frames 60
+assert-status Мат - вы выиграли

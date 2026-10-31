@@ -4,6 +4,8 @@
 pub mod app;
 pub mod assets;
 pub mod bot;
+pub mod effects;
+pub mod i18n;
 pub mod layout;
 pub mod palette;
 pub mod render;

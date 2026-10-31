@@ -3,6 +3,7 @@
 use shaxmat_core::shakmaty::{File, Rank};
 use shaxmat_core::{Color, Role, Square};
 
+use crate::i18n::{Language, Strings};
 use crate::session::PROMOTION_ROLES;
 
 pub const SCREEN_WIDTH: u32 = 480;
@@ -112,32 +113,32 @@ pub enum PanelButton {
 }
 
 /// The buttons under the move list.
-pub fn panel_buttons() -> [(PanelButton, &'static str, Rect); 3] {
+pub fn panel_buttons(strings: &Strings) -> [(PanelButton, &'static str, Rect); 3] {
     let y = BOARD_Y + BOARD_SIZE - BUTTON_HEIGHT;
-    let new_game = 96.0;
+    let new_game = 92.0;
     let others = (PANEL_WIDTH - new_game - 2.0 * BUTTON_GAP) / 2.0;
     let resign_x = PANEL_X + new_game + BUTTON_GAP;
     let draw_x = resign_x + others + BUTTON_GAP;
     [
         (
             PanelButton::NewGame,
-            "Новая партия",
+            strings.new_game,
             Rect::new(PANEL_X, y, new_game, BUTTON_HEIGHT),
         ),
         (
             PanelButton::Resign,
-            "Сдаться",
+            strings.resign,
             Rect::new(resign_x, y, others, BUTTON_HEIGHT),
         ),
         (
             PanelButton::Draw,
-            "Ничья",
+            strings.draw,
             Rect::new(draw_x, y, others, BUTTON_HEIGHT),
         ),
     ]
 }
 
-pub const DIALOG: Rect = Rect::new(120.0, 69.0, 240.0, 132.0);
+pub const DIALOG: Rect = Rect::new(120.0, 51.0, 240.0, 168.0);
 
 /// The level buttons of the new game dialog.
 pub fn level_buttons() -> [(usize, Rect); 8] {
@@ -150,18 +151,36 @@ pub fn level_buttons() -> [(usize, Rect); 8] {
 }
 
 /// The side buttons of the new game dialog.
-pub fn side_buttons() -> [(Color, &'static str, Rect); 2] {
+pub fn side_buttons(strings: &Strings) -> [(Color, &'static str, Rect); 2] {
     let y = DIALOG.y + 78.0;
     let width = (DIALOG.w - 16.0 - BUTTON_GAP) / 2.0;
     let x = DIALOG.x + 8.0;
     [
-        (Color::White, "Белые", Rect::new(x, y, width, BUTTON_HEIGHT)),
+        (
+            Color::White,
+            strings.white,
+            Rect::new(x, y, width, BUTTON_HEIGHT),
+        ),
         (
             Color::Black,
-            "Чёрные",
+            strings.black,
             Rect::new(x + width + BUTTON_GAP, y, width, BUTTON_HEIGHT),
         ),
     ]
+}
+
+/// The language buttons of the new game dialog.
+pub fn language_buttons() -> [(Language, Rect); 3] {
+    let y = DIALOG.y + 114.0;
+    let width = (DIALOG.w - 16.0 - 2.0 * BUTTON_GAP) / 3.0;
+    Language::ALL.map(|language| {
+        let index = Language::ALL
+            .iter()
+            .position(|known| *known == language)
+            .unwrap_or(0) as f32;
+        let x = DIALOG.x + 8.0 + index * (width + BUTTON_GAP);
+        (language, Rect::new(x, y, width, BUTTON_HEIGHT))
+    })
 }
 
 pub const DIALOG_START: Rect = Rect::new(
@@ -244,6 +263,8 @@ mod tests {
         }
         let last = levels[7].1;
         assert!(last.x + last.w <= DIALOG.x + DIALOG.w);
-        assert!(side_buttons()[0].2.y + BUTTON_HEIGHT <= DIALOG_START.y);
+        let side = side_buttons(Language::English.strings())[0].2;
+        assert!(side.y + BUTTON_HEIGHT <= language_buttons()[0].1.y);
+        assert!(language_buttons()[0].1.y + BUTTON_HEIGHT <= DIALOG_START.y);
     }
 }

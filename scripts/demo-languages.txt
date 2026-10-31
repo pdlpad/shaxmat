@@ -1,0 +1,25 @@
+# Run from the repository root: cargo run -p shaxmat-game --bin shaxmat -- --demo scripts/demo-languages.txt
+frames 3
+language uz
+frames 1
+shot records/stage5-lang-uz-dialog.png
+language en
+frames 1
+shot records/stage5-lang-en-dialog.png
+language ru
+frames 1
+shot records/stage5-lang-ru-dialog.png
+
+language uz
+game 1 white 4k3/8/8/8/8/8/8/R3K3 w - - 0 1
+click a1
+click a8
+frames 2
+shot records/stage5-lang-uz-game.png
+frames 60
+language en
+game 1 white 4k3/8/8/8/8/8/8/R3K3 w - - 0 1
+click a1
+click a8
+frames 2
+shot records/stage5-lang-en-game.png

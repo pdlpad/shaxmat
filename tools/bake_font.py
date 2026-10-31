@@ -20,7 +20,7 @@ ATLAS_WIDTH = 256
 CHARS = (
     [chr(c) for c in range(0x20, 0x7F)]
     + [chr(c) for c in range(0x410, 0x450)]
-    + ["Ё", "ё", "—", "…", "№"]
+    + ["Ё", "ё", "—", "…", "№", "‘", "’"]
 )
 
 

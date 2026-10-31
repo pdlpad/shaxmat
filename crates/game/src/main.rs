@@ -4,6 +4,7 @@
 use macroquad::prelude::*;
 use shaxmat_game::app::App;
 use shaxmat_game::assets;
+use shaxmat_game::effects::Effects;
 use shaxmat_game::layout::{SCREEN_HEIGHT, SCREEN_WIDTH, Viewport};
 use shaxmat_game::render::Renderer;
 
@@ -22,24 +23,34 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let renderer = Renderer::new();
+    let mut effects = Effects::load();
     let mut app = App::new(miniquad::date::now() as u64);
 
     #[cfg(not(target_arch = "wasm32"))]
     let mut demo = demo_from_args();
 
     loop {
-        if is_mouse_button_pressed(MouseButton::Left) {
+        if is_mouse_button_pressed(MouseButton::Left) && !effects.scene.is_blocking_input() {
             let (x, y) = mouse_position();
             let (x, y) = Viewport::fit(screen_width(), screen_height()).to_buffer(x, y);
             app.click(x, y);
         }
         app.update();
-        renderer.draw(&app);
+        effects.scene.update(get_frame_time());
+        let flipped = app.session.flipped();
+        for event in app.take_events() {
+            effects.trigger(&event, flipped);
+        }
+        if effects.take_cover() {
+            app.finish_transition();
+        }
+        effects.sync_selection(app.session.selected(), app.session.targets(), flipped);
+        renderer.draw(&app, &effects);
         renderer.present();
 
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(script) = &mut demo
-            && !script.step(&mut app, renderer.buffer())
+            && !script.step(&mut app, &mut effects, renderer.buffer())
         {
             return;
         }
