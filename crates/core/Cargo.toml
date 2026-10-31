@@ -1,0 +1,13 @@
+[package]
+name = "shaxmat-core"
+description = "Chess rules, notation and game history for SHAXMAT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "shaxmat_core"
+
+[dependencies]
+shakmaty.workspace = true
