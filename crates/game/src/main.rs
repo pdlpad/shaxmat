@@ -1,5 +1,9 @@
+// No console window behind the game in release builds.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use macroquad::prelude::*;
 use shaxmat_game::app::App;
+use shaxmat_game::assets;
 use shaxmat_game::layout::{SCREEN_HEIGHT, SCREEN_WIDTH, Viewport};
 use shaxmat_game::render::Renderer;
 
@@ -10,6 +14,7 @@ fn window_conf() -> Conf {
         window_title: "SHAXMAT".to_owned(),
         window_width: SCREEN_WIDTH as i32 * START_SCALE,
         window_height: SCREEN_HEIGHT as i32 * START_SCALE,
+        icon: Some(assets::window_icon()),
         ..Default::default()
     }
 }

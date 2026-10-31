@@ -10,6 +10,24 @@ const FONT_PNG: &[u8] = include_bytes!("../../../assets/font/manrope13.png");
 pub const FONT_METRICS: &str = include_str!("../../../assets/font/manrope13.txt");
 pub const PALETTE_TOML: &str = include_str!("../../../assets/palette.toml");
 
+const ICON_16_PNG: &[u8] = include_bytes!("../../../assets/brand/icon-16.png");
+const ICON_32_PNG: &[u8] = include_bytes!("../../../assets/brand/icon-32.png");
+const ICON_64_PNG: &[u8] = include_bytes!("../../../assets/brand/icon-64.png");
+
+/// The icon for the title bar and the taskbar.
+pub fn window_icon() -> miniquad::conf::Icon {
+    fn rgba<const N: usize>(png: &[u8]) -> [u8; N] {
+        let image = Image::from_file_with_format(png, Some(ImageFormat::Png))
+            .expect("the icons are valid PNG");
+        image.bytes.try_into().expect("the icons have fixed sizes")
+    }
+    miniquad::conf::Icon {
+        small: rgba(ICON_16_PNG),
+        medium: rgba(ICON_32_PNG),
+        big: rgba(ICON_64_PNG),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Glyph {
     pub x: u16,
@@ -106,6 +124,14 @@ mod tests {
         }
         assert!(metrics.height >= 13);
         assert!(metrics.measure("Шах") > metrics.measure("Ш"));
+    }
+
+    #[test]
+    fn the_window_icon_decodes_with_transparent_corners() {
+        let icon = window_icon();
+        assert_eq!(icon.big[3], 0);
+        let center = (32 * 64 + 32) * 4;
+        assert_eq!(icon.big[center + 3], 255);
     }
 
     #[test]
