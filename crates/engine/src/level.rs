@@ -78,6 +78,8 @@ pub struct LevelEngine {
     params: LevelParams,
     searcher: Searcher,
     rng: Rng,
+    /// The position of a started search.
+    pending: Option<SearchPosition>,
 }
 
 impl LevelEngine {
@@ -86,6 +88,7 @@ impl LevelEngine {
             params: level_params(level),
             searcher: Searcher::new(clock),
             rng: Rng::new(seed),
+            pending: None,
         }
     }
 
@@ -100,6 +103,32 @@ impl LevelEngine {
             nodes: None,
             top_n: self.params.top_n,
         }
+    }
+
+    /// Starts choosing a move, to be driven by [`LevelEngine::step`]. The level's own
+    /// limits apply; `limits` can only tighten them.
+    pub fn start(&mut self, position: &SearchPosition, limits: &Limits) {
+        let own = self.limits();
+        let limits = Limits {
+            depth: tightest(own.depth, limits.depth),
+            time_ms: tightest(own.time_ms, limits.time_ms),
+            nodes: limits.nodes,
+            top_n: own.top_n,
+        };
+        self.pending = Some(position.clone());
+        self.searcher.start(position, &limits);
+    }
+
+    /// Thinks for about `slice_ms`, or to the end with `None`. Returns `None` while
+    /// there is work left, then the chosen move, if any is legal.
+    pub fn step(&mut self, slice_ms: Option<u64>) -> Option<Option<Move>> {
+        let scored = self.searcher.step(slice_ms)?;
+        let position = self.pending.take().expect("a search was started");
+        if scored.len() <= 1 || position.position.legal_moves().len() == 1 {
+            return Some(scored.first().map(|m| m.mv));
+        }
+        let candidates = self.candidates(&position, scored);
+        Some(Some(self.choose(&candidates)))
     }
 
     /// The moves a level may play: close enough to the best, and not an outright
@@ -153,19 +182,8 @@ impl LevelEngine {
 impl Engine for LevelEngine {
     /// The level's own limits apply; `limits` can only tighten them.
     fn best_move(&mut self, position: &SearchPosition, limits: &Limits) -> Option<Move> {
-        let own = self.limits();
-        let limits = Limits {
-            depth: tightest(own.depth, limits.depth),
-            time_ms: tightest(own.time_ms, limits.time_ms),
-            nodes: limits.nodes,
-            top_n: own.top_n,
-        };
-        let scored = self.searcher.analyze(position, &limits);
-        if scored.len() <= 1 || position.position.legal_moves().len() == 1 {
-            return scored.first().map(|m| m.mv);
-        }
-        let candidates = self.candidates(position, scored);
-        Some(self.choose(&candidates))
+        self.start(position, limits);
+        self.step(None).flatten()
     }
 
     fn analyze(&mut self, position: &SearchPosition, limits: &Limits) -> Vec<ScoredMove> {

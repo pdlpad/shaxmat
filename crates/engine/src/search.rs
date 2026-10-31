@@ -45,9 +45,14 @@ pub struct Searcher {
     nodes: u64,
     node_limit: u64,
     deadline_ms: Option<u64>,
+    /// End of the current time slice, if the host is slicing.
+    slice_end_ms: Option<u64>,
     /// Depth 1 runs to the end whatever the limits, so there is always a move.
     can_stop: bool,
     stopped: bool,
+    /// The search stopped for the slice, not for good.
+    paused: bool,
+    task: Option<RootTask>,
     completed_depth: u32,
     killers: Box<[[Option<Move>; 2]; MAX_PLY + 1]>,
     /// Indexed by color, moving role and target square.
@@ -63,8 +68,11 @@ impl Searcher {
             nodes: 0,
             node_limit: u64::MAX,
             deadline_ms: None,
+            slice_end_ms: None,
             can_stop: false,
             stopped: false,
+            paused: false,
+            task: None,
             completed_depth: 0,
             killers: Box::new([[None; 2]; MAX_PLY + 1]),
             history: vec![0; 2 * 6 * 64],
@@ -85,12 +93,10 @@ impl Searcher {
         self.completed_depth
     }
 
-    fn run(&mut self, input: &SearchPosition, limits: &Limits) -> Vec<ScoredMove> {
+    /// Sets up a search to be driven by [`Searcher::step`].
+    pub fn start(&mut self, input: &SearchPosition, limits: &Limits) {
         let position = &input.position;
         let legal = position.legal_moves();
-        if legal.is_empty() {
-            return Vec::new();
-        }
         let top_n = match limits.top_n {
             0 => legal.len(),
             n => n.min(legal.len()),
@@ -101,7 +107,6 @@ impl Searcher {
         self.node_limit = limits.nodes.unwrap_or(u64::MAX);
         self.deadline_ms = limits.time_ms.map(|ms| start_ms + ms);
         self.can_stop = false;
-        self.stopped = false;
         self.completed_depth = 0;
         self.killers.fill([None; 2]);
         self.history.fill(0);
@@ -114,62 +119,81 @@ impl Searcher {
         } else {
             MAX_DEPTH
         };
-        let max_depth = limits.depth.unwrap_or(default_depth).clamp(1, MAX_DEPTH);
 
-        let mut order: Vec<ScoredMove> = legal
-            .iter()
-            .map(|&mv| ScoredMove { mv, score: 0 })
-            .collect();
-        let mut best: Vec<ScoredMove> = Vec::new();
+        self.task = (!legal.is_empty()).then(|| RootTask {
+            position: position.clone(),
+            order: legal
+                .iter()
+                .map(|&mv| ScoredMove { mv, score: 0 })
+                .collect(),
+            best: Vec::new(),
+            partial: Vec::with_capacity(top_n + 1),
+            next_move: 0,
+            depth: 1,
+            max_depth: limits.depth.unwrap_or(default_depth).clamp(1, MAX_DEPTH),
+            top_n,
+            time_ms: limits.time_ms,
+            start_ms,
+        });
+    }
 
-        for depth in 1..=max_depth {
-            let results = self.search_root(position, &order, depth as i32, top_n);
+    /// Runs the started search for about `slice_ms`, or to the end with `None`.
+    /// Returns the result once done, and `None` while there is work left, so a
+    /// single-threaded host can keep drawing frames in between.
+    pub fn step(&mut self, slice_ms: Option<u64>) -> Option<Vec<ScoredMove>> {
+        let Some(mut task) = self.task.take() else {
+            return Some(Vec::new());
+        };
+        self.slice_end_ms = slice_ms.map(|ms| self.clock.now_ms() + ms);
+        self.stopped = false;
+        self.paused = false;
+
+        while task.depth <= task.max_depth {
+            self.search_root(&mut task);
+            if self.paused {
+                self.task = Some(task);
+                return None;
+            }
             if self.stopped {
                 break;
             }
-            self.completed_depth = depth;
+            self.completed_depth = task.depth;
             self.can_stop = true;
-            best = results;
-            // Next iteration: the best moves first, the rest in their old order.
-            let rest: Vec<ScoredMove> = order
-                .iter()
-                .filter(|m| !best.iter().any(|b| b.mv == m.mv))
-                .copied()
-                .collect();
-            order = best.iter().copied().chain(rest).collect();
+            task.finish_iteration();
 
-            let forced = legal.len() == 1 || best[0].score.abs() >= MATE_BOUND;
-            if forced && top_n == 1 {
+            let forced = task.order.len() == 1 || task.best[0].score.abs() >= MATE_BOUND;
+            if forced && task.top_n == 1 {
                 break;
             }
-            if let Some(time_ms) = limits.time_ms {
-                let spent = self.clock.now_ms() - start_ms;
+            if let Some(time_ms) = task.time_ms {
+                let spent = self.clock.now_ms() - task.start_ms;
                 if spent as f64 > time_ms as f64 * ITERATION_TIME_SHARE {
                     break;
                 }
             }
         }
-        best
+        Some(task.best)
     }
 
-    /// Scores the root moves. Only the best `top_n` get an exact score: each other
-    /// move only has to prove it stays below the current last place.
-    fn search_root(
-        &mut self,
-        position: &Chess,
-        moves: &[ScoredMove],
-        depth: i32,
-        top_n: usize,
-    ) -> Vec<ScoredMove> {
-        let mut results: Vec<ScoredMove> = Vec::with_capacity(top_n + 1);
-        for scored in moves {
-            let alpha = if results.len() == top_n {
-                results[top_n - 1].score
+    fn run(&mut self, input: &SearchPosition, limits: &Limits) -> Vec<ScoredMove> {
+        self.start(input, limits);
+        self.step(None).unwrap_or_default()
+    }
+
+    /// Scores the root moves, picking up where the last pause left off. Only the
+    /// best `top_n` get an exact score: each other move only has to prove it stays
+    /// below the current last place.
+    fn search_root(&mut self, task: &mut RootTask) {
+        let depth = task.depth as i32;
+        while task.next_move < task.order.len() {
+            let mv = task.order[task.next_move].mv;
+            let alpha = if task.partial.len() == task.top_n {
+                task.partial[task.top_n - 1].score
             } else {
                 -INFINITY
             };
-            let mut next = position.clone();
-            next.play_unchecked(scored.mv);
+            let mut next = task.position.clone();
+            next.play_unchecked(mv);
             let mut score = -INFINITY;
             if alpha > -INFINITY {
                 score = -self.negamax(&next, depth - 1, -alpha - 1, -alpha, 1);
@@ -178,21 +202,15 @@ impl Searcher {
                 score = -self.negamax(&next, depth - 1, -INFINITY, -alpha, 1);
             }
             if self.stopped {
-                break;
+                return;
             }
             if score > alpha {
-                let at = results.partition_point(|r| r.score >= score);
-                results.insert(
-                    at,
-                    ScoredMove {
-                        mv: scored.mv,
-                        score,
-                    },
-                );
-                results.truncate(top_n);
+                let at = task.partial.partition_point(|r| r.score >= score);
+                task.partial.insert(at, ScoredMove { mv, score });
+                task.partial.truncate(task.top_n);
             }
+            task.next_move += 1;
         }
-        results
     }
 
     fn negamax(
@@ -430,15 +448,52 @@ impl Searcher {
 
     fn count_node(&mut self) {
         self.nodes += 1;
-        if self.can_stop
-            && (self.nodes >= self.node_limit
-                || (self.nodes.is_multiple_of(CLOCK_CHECK_INTERVAL)
-                    && self
-                        .deadline_ms
-                        .is_some_and(|deadline| self.clock.now_ms() >= deadline)))
-        {
+        if self.can_stop && self.nodes >= self.node_limit {
             self.stopped = true;
         }
+        if !self.nodes.is_multiple_of(CLOCK_CHECK_INTERVAL) {
+            return;
+        }
+        let now = self.clock.now_ms();
+        if self.can_stop && self.deadline_ms.is_some_and(|deadline| now >= deadline) {
+            self.stopped = true;
+        } else if self.slice_end_ms.is_some_and(|end| now >= end) {
+            self.stopped = true;
+            self.paused = true;
+        }
+    }
+}
+
+/// A root search in progress.
+struct RootTask {
+    position: Chess,
+    /// All legal moves, in search order.
+    order: Vec<ScoredMove>,
+    /// The result of the last finished iteration.
+    best: Vec<ScoredMove>,
+    /// The result so far of the running iteration.
+    partial: Vec<ScoredMove>,
+    next_move: usize,
+    depth: u32,
+    max_depth: u32,
+    top_n: usize,
+    time_ms: Option<u64>,
+    start_ms: u64,
+}
+
+impl RootTask {
+    /// Puts the best moves first and moves on to the next depth.
+    fn finish_iteration(&mut self) {
+        self.best = std::mem::take(&mut self.partial);
+        let rest: Vec<ScoredMove> = self
+            .order
+            .iter()
+            .filter(|m| !self.best.iter().any(|b| b.mv == m.mv))
+            .copied()
+            .collect();
+        self.order = self.best.iter().copied().chain(rest).collect();
+        self.next_move = 0;
+        self.depth += 1;
     }
 }
 
@@ -636,6 +691,35 @@ mod tests {
         let mut engine = searcher();
         assert!(engine.best_move(&position, &Limits::time_ms(100)).is_some());
         assert!(clock.now_ms() - start < 300);
+        assert!(engine.completed_depth() >= 1);
+    }
+
+    #[test]
+    fn sliced_search_reaches_the_same_depth() {
+        let fen = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3";
+        let position = SearchPosition::from(&parse_fen(fen).unwrap());
+        let mut engine = searcher();
+        engine.start(&position, &Limits::depth(7).with_top_n(1));
+        let mut slices = 0;
+        let result = loop {
+            slices += 1;
+            if let Some(result) = engine.step(Some(1)) {
+                break result;
+            }
+        };
+        assert!(slices > 1);
+        assert_eq!(engine.completed_depth(), 7);
+        assert!(parse_fen(fen).unwrap().is_legal(result[0].mv));
+    }
+
+    #[test]
+    fn sliced_search_keeps_the_time_limit() {
+        let position = SearchPosition::from(&Chess::default());
+        let clock = NativeClock::default();
+        let mut engine = searcher();
+        engine.start(&position, &Limits::time_ms(50));
+        while engine.step(Some(1)).is_none() {}
+        assert!(clock.now_ms() < 250);
         assert!(engine.completed_depth() >= 1);
     }
 

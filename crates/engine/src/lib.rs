@@ -94,7 +94,7 @@ pub trait Engine {
 
 /// Monotonic time source, supplied by the host: `std::time::Instant` panics on
 /// `wasm32-unknown-unknown`.
-pub trait Clock {
+pub trait Clock: Send {
     fn now_ms(&self) -> u64;
 }
 

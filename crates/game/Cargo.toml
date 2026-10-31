@@ -1,0 +1,19 @@
+[package]
+name = "shaxmat-game"
+description = "Pixel-art chess against a bot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "shaxmat_game"
+
+[[bin]]
+name = "shaxmat"
+path = "src/main.rs"
+
+[dependencies]
+macroquad = "0.4"
+shaxmat-core = { path = "../core" }
+shaxmat-engine = { path = "../engine" }

@@ -22,6 +22,8 @@ pub enum GameStatus {
     InsufficientMaterial,
     FiftyMoves,
     ThreefoldRepetition,
+    Resigned { winner: Color },
+    DrawAgreed,
 }
 
 impl GameStatus {
@@ -35,8 +37,14 @@ impl GameStatus {
             GameStatus::InProgress => "*",
             GameStatus::Checkmate {
                 winner: Color::White,
+            }
+            | GameStatus::Resigned {
+                winner: Color::White,
             } => "1-0",
             GameStatus::Checkmate {
+                winner: Color::Black,
+            }
+            | GameStatus::Resigned {
                 winner: Color::Black,
             } => "0-1",
             _ => "1/2-1/2",
@@ -171,6 +179,24 @@ impl Game {
         let parsed = SanPlus::from_ascii(san.as_bytes()).map_err(|_| invalid())?;
         let mv = parsed.san.to_move(self.position()).map_err(|_| invalid())?;
         self.play(mv)
+    }
+
+    /// Ends the game with `color` resigning.
+    pub fn resign(&mut self, color: Color) -> Result<(), GameError> {
+        self.end(GameStatus::Resigned { winner: !color })
+    }
+
+    /// Ends the game as a draw by agreement.
+    pub fn agree_draw(&mut self) -> Result<(), GameError> {
+        self.end(GameStatus::DrawAgreed)
+    }
+
+    fn end(&mut self, status: GameStatus) -> Result<(), GameError> {
+        if self.status.is_over() {
+            return Err(GameError::GameOver);
+        }
+        self.status = status;
+        Ok(())
     }
 
     /// Takes back the last move. Returns it, or `None` at the start of the game.
@@ -316,6 +342,21 @@ mod tests {
         assert_eq!(game.sans(), ["f3", "e5", "g4"]);
         while game.undo().is_some() {}
         assert_eq!(game.position(), &Chess::default());
+    }
+
+    #[test]
+    fn resignation_and_agreed_draw_end_the_game() {
+        let mut game = Game::new();
+        game.resign(Color::White).unwrap();
+        assert_eq!(game.status().result(), "0-1");
+        assert!(game.legal_moves().is_empty());
+        assert_eq!(game.agree_draw(), Err(GameError::GameOver));
+
+        let mut game = Game::new();
+        game.agree_draw().unwrap();
+        assert_eq!(game.status(), GameStatus::DrawAgreed);
+        assert_eq!(game.status().result(), "1/2-1/2");
+        assert_eq!(game.play_san("e4"), Err(GameError::GameOver));
     }
 
     #[test]
