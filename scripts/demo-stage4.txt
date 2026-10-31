@@ -1,0 +1,37 @@
+# Run from the repository root: cargo run -p shaxmat-game --bin shaxmat -- --demo scripts/demo-stage4.txt
+frames 3
+shot records/stage4-game-01-dialog.png
+
+game 3 white
+click e2
+shot records/stage4-game-02-selected.png
+click e4
+wait-bot
+assert-status Ваш ход
+shot records/stage4-game-03-classic.png
+
+game 1 black r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+theme 1
+shot records/stage4-game-04-night.png
+
+theme 0
+game 1 white 6k1/P7/8/8/8/8/8/4K3 w - - 0 1
+click a7
+click a8
+assert-status Выберите фигуру
+shot records/stage4-game-05-promotion.png
+
+theme 1
+game 1 white r1bqkbnr/pppp1Qpp/2n5/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
+assert-status Мат - вы выиграли
+shot records/stage4-game-06-checkmate.png
+
+theme 0
+game 1 white 3k4/8/8/8/8/8/4q3/7K w - - 0 1
+press draw
+frames 1
+shot records/stage4-game-07-draw-declined.png
+
+theme 0
+game 1 white 8/8/8/8/8/8/1q6/k5K1 w - - 99 80
+shot records/stage4-game-08-check.png

@@ -1,0 +1,26 @@
+# The project palette. Everything drawn in the game comes from here, and pixelfx
+# effects take their palettes from it too.
+
+# Sampled from the SHAXMAT logo and icon, plus sky, amber and red to round them out.
+[colors]
+ink = "#080018"
+navy = "#02103A"
+blue = "#2C4C90"
+sky = "#7A9AD8"
+cream = "#F8F0E0"
+gold = "#FCCB3A"
+amber = "#C8801C"
+red = "#D8402C"
+
+# From dark to bright, for light and glow.
+[ramp]
+light = ["#3A2410", "#8A5A14", "#FCCB3A", "#FFE98A", "#FFFBE0"]
+
+# Board themes name their squares by palette color.
+[themes.classic]
+light = "cream"
+dark = "blue"
+
+[themes.night]
+light = "blue"
+dark = "navy"

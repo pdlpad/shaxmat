@@ -1,9 +1,11 @@
-//! The SHAXMAT game. Everything but `render` and `main` is free of graphics and
+//! The SHAXMAT game. Everything but `assets`, `render` and `main` is free of graphics and
 //! input, and so testable without a window.
 
 pub mod app;
+pub mod assets;
 pub mod bot;
 pub mod layout;
+pub mod palette;
 pub mod render;
 pub mod session;
 

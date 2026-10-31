@@ -2,6 +2,7 @@
 //! the mouse replaced by a text file. Lines, `#` starting a comment:
 //!
 //!   game <level> <white|black> [fen]   start a game
+//!   theme 1                            pick a board theme
 //!   click e2                           click a square
 //!   promote q                          pick from the promotion menu
 //!   press new|resign|draw              press a panel button
@@ -59,6 +60,7 @@ impl Demo {
             let (command, rest) = line.split_once(' ').unwrap_or((&line, ""));
             match command {
                 "game" => start_game(app, rest),
+                "theme" => app.theme = rest.parse().expect("theme takes a number"),
                 "click" => click_square(app, rest),
                 "promote" => promote(app, rest),
                 "press" => press(app, rest),

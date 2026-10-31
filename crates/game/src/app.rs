@@ -25,6 +25,8 @@ pub struct App {
     pub setup: Option<Setup>,
     /// A one-off message, such as a declined draw.
     pub notice: Option<&'static str>,
+    /// Index of the board theme in the palette.
+    pub theme: usize,
     next_seed: u64,
 }
 
@@ -38,6 +40,7 @@ impl App {
                 human: Color::White,
             }),
             notice: None,
+            theme: 0,
             next_seed: seed.wrapping_add(1),
         }
     }
@@ -128,7 +131,7 @@ impl App {
         if self.bot.accepts_draw(&self.session.game) {
             self.session.game.agree_draw().expect("the game is running");
         } else {
-            self.notice = Some("Draw declined");
+            self.notice = Some("Ничья отклонена");
         }
     }
 
@@ -157,28 +160,34 @@ impl App {
     /// The line telling whose decision it is, or how the game ended.
     pub fn status_line(&self) -> String {
         let session = &self.session;
-        let name = |color: Color| if color == session.human { "You" } else { "Bot" };
+        let winner_line = |color: Color| {
+            if color == session.human {
+                "вы выиграли"
+            } else {
+                "бот выиграл"
+            }
+        };
         match session.game.status() {
-            GameStatus::InProgress if session.promotion().is_some() => "Choose a piece".to_owned(),
+            GameStatus::InProgress if session.promotion().is_some() => "Выберите фигуру".to_owned(),
             GameStatus::InProgress => {
                 let check = if session.game.position().is_check() {
-                    " - check!"
+                    " - шах!"
                 } else {
                     ""
                 };
                 if session.is_human_turn() {
-                    format!("Your move{check}")
+                    format!("Ваш ход{check}")
                 } else {
-                    format!("Bot is thinking{check}")
+                    format!("Бот думает{check}")
                 }
             }
-            GameStatus::Checkmate { winner } => format!("Checkmate - {} won", name(winner)),
-            GameStatus::Resigned { winner } => format!("Resigned - {} won", name(winner)),
-            GameStatus::Stalemate => "Draw - stalemate".to_owned(),
-            GameStatus::InsufficientMaterial => "Draw - insufficient material".to_owned(),
-            GameStatus::FiftyMoves => "Draw - fifty moves".to_owned(),
-            GameStatus::ThreefoldRepetition => "Draw - repetition".to_owned(),
-            GameStatus::DrawAgreed => "Draw agreed".to_owned(),
+            GameStatus::Checkmate { winner } => format!("Мат - {}", winner_line(winner)),
+            GameStatus::Resigned { winner } => format!("Сдача - {}", winner_line(winner)),
+            GameStatus::Stalemate => "Ничья - пат".to_owned(),
+            GameStatus::InsufficientMaterial => "Ничья - мало фигур".to_owned(),
+            GameStatus::FiftyMoves => "Ничья - правило 50 ходов".to_owned(),
+            GameStatus::ThreefoldRepetition => "Ничья - повторение".to_owned(),
+            GameStatus::DrawAgreed => "Ничья по соглашению".to_owned(),
         }
     }
 
@@ -188,6 +197,9 @@ impl App {
         let start = game.start_position();
         let black_first = start.turn() == Color::Black;
         let mut sans = game.sans();
+        if sans.is_empty() {
+            return Vec::new();
+        }
         if black_first {
             sans.insert(0, "...".to_owned());
         }
@@ -245,7 +257,7 @@ mod tests {
                 winner: Color::Black
             }
         );
-        assert_eq!(app.status_line(), "Resigned - Bot won");
+        assert_eq!(app.status_line(), "Сдача - бот выиграл");
     }
 
     #[test]
@@ -279,7 +291,7 @@ mod tests {
             },
         );
         app.press(PanelButton::Draw);
-        assert_eq!(app.notice, Some("Draw declined"));
+        assert_eq!(app.notice, Some("Ничья отклонена"));
         assert_eq!(app.session.game.status(), GameStatus::InProgress);
     }
 

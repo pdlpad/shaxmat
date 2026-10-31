@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 use shaxmat_game::app::App;
 use shaxmat_game::layout::{SCREEN_HEIGHT, SCREEN_WIDTH, Viewport};
-use shaxmat_game::render;
+use shaxmat_game::render::Renderer;
 
 const START_SCALE: i32 = 3;
 
@@ -16,7 +16,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let buffer = render::create_buffer();
+    let renderer = Renderer::new();
     let mut app = App::new(miniquad::date::now() as u64);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -29,12 +29,12 @@ async fn main() {
             app.click(x, y);
         }
         app.update();
-        render::draw_buffer(&app, &buffer);
-        render::present(&buffer);
+        renderer.draw(&app);
+        renderer.present();
 
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(script) = &mut demo
-            && !script.step(&mut app, &buffer)
+            && !script.step(&mut app, renderer.buffer())
         {
             return;
         }

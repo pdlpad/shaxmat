@@ -17,3 +17,4 @@ path = "src/main.rs"
 macroquad = "0.4"
 shaxmat-core = { path = "../core" }
 shaxmat-engine = { path = "../engine" }
+toml = { version = "0.8", default-features = false, features = ["parse"] }

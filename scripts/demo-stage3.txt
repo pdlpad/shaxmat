@@ -7,7 +7,7 @@ click e2
 shot records/stage3-02-selected.png
 click e4
 wait-bot
-assert-status Your move
+assert-status Ваш ход
 shot records/stage3-03-bot-replied.png
 
 game 1 white r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1
@@ -27,7 +27,7 @@ shot records/stage3-07-en-passant.png
 game 1 white 6k1/P7/8/8/8/8/8/4K3 w - - 0 1
 click a7
 click a8
-assert-status Choose a piece
+assert-status Выберите фигуру
 shot records/stage3-08-promotion-menu.png
 promote n
 wait-bot
@@ -39,7 +39,7 @@ click e7
 shot records/stage3-10-black-side.png
 
 game 1 white 3k4/8/8/8/8/8/4q3/7K w - - 0 1
-assert-status Your move
+assert-status Ваш ход
 press draw
 frames 1
 shot records/stage3-11-draw-declined.png
@@ -47,18 +47,18 @@ shot records/stage3-11-draw-declined.png
 game 1 white 6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1
 click a1
 click a8
-assert-status Checkmate - You won
+assert-status Мат - вы выиграли
 shot records/stage3-12-checkmate.png
 
 game 1 white 7k/8/6K1/5Q2/8/8/8/8 w - - 0 1
 click f5
 click f7
-assert-status Draw - stalemate
+assert-status Ничья - пат
 shot records/stage3-13-stalemate.png
 
 game 1 white
 press resign
-assert-status Resigned - Bot won
+assert-status Сдача - бот выиграл
 press new
 frames 2
 shot records/stage3-14-new-game.png

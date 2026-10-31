@@ -113,13 +113,27 @@ pub enum PanelButton {
 
 /// The buttons under the move list.
 pub fn panel_buttons() -> [(PanelButton, &'static str, Rect); 3] {
-    let width = (PANEL_WIDTH - 2.0 * BUTTON_GAP) / 3.0;
     let y = BOARD_Y + BOARD_SIZE - BUTTON_HEIGHT;
-    let rect = |i: f32| Rect::new(PANEL_X + i * (width + BUTTON_GAP), y, width, BUTTON_HEIGHT);
+    let new_game = 96.0;
+    let others = (PANEL_WIDTH - new_game - 2.0 * BUTTON_GAP) / 2.0;
+    let resign_x = PANEL_X + new_game + BUTTON_GAP;
+    let draw_x = resign_x + others + BUTTON_GAP;
     [
-        (PanelButton::NewGame, "New game", rect(0.0)),
-        (PanelButton::Resign, "Resign", rect(1.0)),
-        (PanelButton::Draw, "Draw", rect(2.0)),
+        (
+            PanelButton::NewGame,
+            "Новая партия",
+            Rect::new(PANEL_X, y, new_game, BUTTON_HEIGHT),
+        ),
+        (
+            PanelButton::Resign,
+            "Сдаться",
+            Rect::new(resign_x, y, others, BUTTON_HEIGHT),
+        ),
+        (
+            PanelButton::Draw,
+            "Ничья",
+            Rect::new(draw_x, y, others, BUTTON_HEIGHT),
+        ),
     ]
 }
 
@@ -141,10 +155,10 @@ pub fn side_buttons() -> [(Color, &'static str, Rect); 2] {
     let width = (DIALOG.w - 16.0 - BUTTON_GAP) / 2.0;
     let x = DIALOG.x + 8.0;
     [
-        (Color::White, "White", Rect::new(x, y, width, BUTTON_HEIGHT)),
+        (Color::White, "Белые", Rect::new(x, y, width, BUTTON_HEIGHT)),
         (
             Color::Black,
-            "Black",
+            "Чёрные",
             Rect::new(x + width + BUTTON_GAP, y, width, BUTTON_HEIGHT),
         ),
     ]
