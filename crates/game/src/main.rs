@@ -7,6 +7,7 @@ use shaxmat_game::assets;
 use shaxmat_game::effects::Effects;
 use shaxmat_game::layout::{SCREEN_HEIGHT, SCREEN_WIDTH, Viewport};
 use shaxmat_game::render::Renderer;
+use shaxmat_game::window;
 
 const START_SCALE: i32 = 3;
 
@@ -29,6 +30,7 @@ async fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     let mut demo = demo_from_args();
 
+    let mut first_frame = true;
     loop {
         if is_mouse_button_pressed(MouseButton::Left) && !effects.scene.is_blocking_input() {
             let (x, y) = mouse_position();
@@ -37,6 +39,7 @@ async fn main() {
         }
         app.update();
         effects.scene.update(get_frame_time());
+        app.animate(get_frame_time());
         let flipped = app.session.flipped();
         for event in app.take_events() {
             effects.trigger(&event, flipped);
@@ -55,6 +58,10 @@ async fn main() {
             return;
         }
         next_frame().await;
+        if first_frame {
+            window::style_title_bar();
+            first_frame = false;
+        }
     }
 }
 

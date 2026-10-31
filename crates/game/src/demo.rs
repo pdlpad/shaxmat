@@ -4,6 +4,7 @@
 //!   game <level> <white|black> [fen]   start a game
 //!   theme 1                            pick a board theme
 //!   language en|ru|uz                  pick a language
+//!   panel                              hide or show the panel
 //!   click e2                           click a square
 //!   promote q                          pick from the promotion menu
 //!   press new|resign|draw              press a panel button
@@ -25,7 +26,7 @@ use shaxmat_fx::Event;
 use crate::app::{App, Setup};
 use crate::effects::Effects;
 use crate::i18n::Language;
-use crate::layout::{PanelButton, promotion_menu, square_rect};
+use crate::layout::{PANEL_TAB, PanelButton, promotion_menu, square_rect};
 
 /// A frame slower than this missed 60 fps by more than a little.
 const LATE_FRAME_SECONDS: f32 = 0.02;
@@ -74,6 +75,7 @@ impl Demo {
             match command {
                 "game" => start_game(app, rest),
                 "fx" => play_effect(app, effects, rest),
+                "panel" => app.click(PANEL_TAB.x + 1.0, PANEL_TAB.y + 1.0),
                 "language" => {
                     app.language = match rest {
                         "en" => Language::English,
@@ -164,7 +166,8 @@ fn start_game(app: &mut App, args: &str) {
 fn click_square(app: &mut App, name: &str) {
     let square: Square = name.parse().expect("a square name");
     let rect = square_rect(square, app.session.flipped());
-    app.click(rect.x + rect.w / 2.0, rect.y + rect.h / 2.0);
+    let shift = app.board_offset();
+    app.click(rect.x + rect.w / 2.0 + shift, rect.y + rect.h / 2.0);
 }
 
 fn promote(app: &mut App, name: &str) {

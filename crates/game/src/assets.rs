@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use macroquad::prelude::*;
 
+const BACKDROP_PNG: &[u8] = include_bytes!("../../../assets/backdrop.png");
+const BACKDROP_BLUR_PNG: &[u8] = include_bytes!("../../../assets/backdrop-blur.png");
 const PIECES_PNG: &[u8] = include_bytes!("../../../assets/pieces.png");
 const FONT_PNG: &[u8] = include_bytes!("../../../assets/font/manrope13.png");
 pub const FONT_METRICS: &str = include_str!("../../../assets/font/manrope13.txt");
@@ -92,6 +94,8 @@ impl FontMetrics {
 
 /// The loaded textures.
 pub struct Assets {
+    pub backdrop: Texture2D,
+    pub backdrop_blur: Texture2D,
     pub pieces: Texture2D,
     pub font: Texture2D,
     pub metrics: FontMetrics,
@@ -99,13 +103,16 @@ pub struct Assets {
 
 impl Assets {
     pub fn load() -> Self {
-        let pieces = Texture2D::from_file_with_format(PIECES_PNG, Some(ImageFormat::Png));
-        pieces.set_filter(FilterMode::Nearest);
-        let font = Texture2D::from_file_with_format(FONT_PNG, Some(ImageFormat::Png));
-        font.set_filter(FilterMode::Nearest);
+        let texture = |png: &[u8]| {
+            let texture = Texture2D::from_file_with_format(png, Some(ImageFormat::Png));
+            texture.set_filter(FilterMode::Nearest);
+            texture
+        };
         Assets {
-            pieces,
-            font,
+            backdrop: texture(BACKDROP_PNG),
+            backdrop_blur: texture(BACKDROP_BLUR_PNG),
+            pieces: texture(PIECES_PNG),
+            font: texture(FONT_PNG),
             metrics: FontMetrics::parse(FONT_METRICS),
         }
     }

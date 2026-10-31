@@ -1,0 +1,22 @@
+# Run from the repository root: cargo run -p shaxmat-game --bin shaxmat -- --demo scripts/demo-glass.txt
+frames 3
+shot records/stage5-glass-01-dialog.png
+game 3 white
+click e2
+click e4
+wait-bot
+shot records/stage5-glass-02-panel.png
+panel
+frames 7
+shot records/stage5-glass-03-sliding.png
+frames 20
+shot records/stage5-glass-04-hidden.png
+click d2
+frames 4
+shot records/stage5-glass-05-hidden-select.png
+click d2
+panel
+frames 25
+theme 1
+frames 2
+shot records/stage5-glass-06-night.png

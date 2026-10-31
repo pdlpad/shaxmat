@@ -15,6 +15,20 @@ pub const BOARD_Y: f32 = 39.0;
 pub const PANEL_X: f32 = 232.0;
 pub const PANEL_WIDTH: f32 = 224.0;
 
+/// The glass card behind the panel.
+pub const PANEL_CARD: Rect = Rect::new(
+    PANEL_X - 6.0,
+    BOARD_Y - 6.0,
+    PANEL_WIDTH + 12.0,
+    BOARD_SIZE + 12.0,
+);
+/// The tab that hides and shows the panel, always on the right edge.
+pub const PANEL_TAB: Rect = Rect::new(466.0, 119.0, 11.0, 32.0);
+/// How far the panel slides out when hidden.
+pub const PANEL_SLIDE: f32 = 250.0;
+/// How far the board slides to sit in the middle of the screen.
+pub const BOARD_SLIDE: f32 = (SCREEN_WIDTH as f32 - BOARD_SIZE) / 2.0 - BOARD_X;
+
 const BUTTON_HEIGHT: f32 = 18.0;
 const BUTTON_GAP: f32 = 4.0;
 

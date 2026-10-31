@@ -7,12 +7,13 @@ use shaxmat_fx::Event;
 use crate::bot::Bot;
 use crate::i18n::{Language, Strings};
 use crate::layout::{
-    DIALOG_CANCEL, DIALOG_START, PanelButton, language_buttons, level_buttons, panel_buttons,
-    promotion_menu, side_buttons, square_at,
+    BOARD_SLIDE, DIALOG_CANCEL, DIALOG_START, PANEL_SLIDE, PANEL_TAB, PanelButton,
+    language_buttons, level_buttons, panel_buttons, promotion_menu, side_buttons, square_at,
 };
 use crate::session::{Session, destination};
 
 pub const DEFAULT_LEVEL: usize = 3;
+const PANEL_SECONDS: f32 = 0.25;
 
 /// The choices in the new game dialog.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +30,10 @@ pub struct App {
     /// A one-off message, such as a declined draw.
     pub notice: Option<&'static str>,
     pub language: Language,
+    /// Where the player wants the panel.
+    pub panel_open: bool,
+    /// How far out the panel is, from 0 (hidden) to 1 (open).
+    panel_amount: f32,
     /// Index of the board theme in the palette.
     pub theme: usize,
     /// Game events for the effects to pick up.
@@ -51,6 +56,8 @@ impl App {
             }),
             notice: None,
             language: Language::Russian,
+            panel_open: true,
+            panel_amount: 1.0,
             theme: 0,
             events: Vec::new(),
             moves_seen: 0,
@@ -68,6 +75,32 @@ impl App {
         self.notice = None;
         self.moves_seen = self.session.game.moves().len();
         self.pending_start = None;
+    }
+
+    /// Moves the panel towards where it should be.
+    pub fn animate(&mut self, dt: f32) {
+        let goal = if self.panel_open { 1.0 } else { 0.0 };
+        let step = dt / PANEL_SECONDS;
+        self.panel_amount = if goal > self.panel_amount {
+            (self.panel_amount + step).min(goal)
+        } else {
+            (self.panel_amount - step).max(goal)
+        };
+    }
+
+    fn panel_eased(&self) -> f32 {
+        let k = self.panel_amount;
+        k * k * (3.0 - 2.0 * k)
+    }
+
+    /// How far the board is shifted right, in whole pixels.
+    pub fn board_offset(&self) -> f32 {
+        ((1.0 - self.panel_eased()) * BOARD_SLIDE).round()
+    }
+
+    /// How far the panel is shifted right, in whole pixels.
+    pub fn panel_offset(&self) -> f32 {
+        ((1.0 - self.panel_eased()) * PANEL_SLIDE).round()
     }
 
     /// The interface texts in the current language.
@@ -128,13 +161,19 @@ impl App {
             self.click_dialog(x, y);
             return;
         }
-        if let Some((button, _, _)) = panel_buttons(self.strings())
-            .into_iter()
-            .find(|(_, _, rect)| rect.contains(x, y))
+        if PANEL_TAB.contains(x, y) {
+            self.panel_open = !self.panel_open;
+            return;
+        }
+        if self.panel_amount >= 1.0
+            && let Some((button, _, _)) = panel_buttons(self.strings())
+                .into_iter()
+                .find(|(_, _, rect)| rect.contains(x, y))
         {
             self.press(button);
             return;
         }
+        let x = x - self.board_offset();
         let flipped = self.session.flipped();
         if let Some((_, to)) = self.session.promotion() {
             let choice = promotion_menu(to, flipped)
@@ -455,6 +494,35 @@ mod tests {
         );
         app.note_new_moves();
         assert!(app.take_events().is_empty());
+    }
+
+    #[test]
+    fn hiding_the_panel_centers_the_board_and_keeps_it_clickable() {
+        let mut app = App::new(1);
+        app.start_game(
+            Game::new(),
+            Setup {
+                level: 1,
+                human: Color::White,
+            },
+        );
+        let (x, y) = center(PANEL_TAB);
+        app.click(x, y);
+        assert!(!app.panel_open);
+        app.animate(1.0);
+        assert_eq!(app.board_offset(), BOARD_SLIDE);
+        assert_eq!(app.panel_offset(), PANEL_SLIDE);
+
+        // The panel's buttons are gone, and the board answers where it now is.
+        app.press(PanelButton::NewGame);
+        app.setup = None;
+        let e2 = crate::layout::square_rect(Square::E2, false);
+        app.click(e2.x + 12.0 + BOARD_SLIDE, e2.y + 12.0);
+        assert_eq!(app.session.selected(), Some(Square::E2));
+
+        app.click(x, y);
+        app.animate(1.0);
+        assert_eq!(app.board_offset(), 0.0);
     }
 
     #[test]

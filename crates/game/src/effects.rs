@@ -134,9 +134,19 @@ impl Effects {
         false
     }
 
+    /// Draws what plays on the board, which moves with it.
+    pub fn draw_on_board(&self) {
+        self.draw_where(|instance| instance.scale == 1.0);
+    }
+
+    /// Draws what fills the screen.
+    pub fn draw_on_screen(&self) {
+        self.draw_where(|instance| instance.scale != 1.0);
+    }
+
     /// Draws what is playing, oldest first.
-    pub fn draw(&self) {
-        for instance in self.scene.playing() {
+    fn draw_where(&self, wanted: impl Fn(&Instance) -> bool) {
+        for instance in self.scene.playing().filter(|i| wanted(i)) {
             let sheet = self.scene.sheet(instance.sheet);
             let frame = sheet.frames[sheet.frame_at(instance.age)];
             let (pivot_x, pivot_y) = sheet.pivot;

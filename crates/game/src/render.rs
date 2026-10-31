@@ -8,8 +8,8 @@ use crate::app::{App, Setup};
 use crate::assets::Assets;
 use crate::effects::Effects;
 use crate::layout::{
-    self, BOARD_SIZE, BOARD_X, BOARD_Y, CELL, DIALOG, DIALOG_CANCEL, DIALOG_START, PANEL_X,
-    Rect as Area, SCREEN_HEIGHT, SCREEN_WIDTH,
+    self, BOARD_SIZE, BOARD_X, BOARD_Y, CELL, DIALOG, DIALOG_CANCEL, DIALOG_START, PANEL_CARD,
+    PANEL_SLIDE, PANEL_TAB, PANEL_X, Rect as Area, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 use crate::palette::{Palette, with_alpha};
 use crate::session::destination;
@@ -24,6 +24,10 @@ const SELECTED_ALPHA: f32 = 0.7;
 const LAST_MOVE_ALPHA: f32 = 0.55;
 const CHECK_ALPHA: f32 = 0.75;
 const DIM_ALPHA: f32 = 0.6;
+const GLASS_TINT: f32 = 0.1;
+const GLASS_RIM: f32 = 0.22;
+const GLASS_SHINE: f32 = 0.5;
+const BUTTON_ALPHA: f32 = 0.75;
 
 /// Everything the drawing needs that does not change during a game.
 pub struct Renderer {
@@ -48,29 +52,99 @@ impl Renderer {
         &self.buffer
     }
 
-    /// Draws a frame into the buffer.
-    pub fn draw(&self, app: &App, effects: &Effects) {
+    /// A camera that shows everything moved `shift` pixels to the right.
+    fn camera(&self, shift: f32) -> Camera2D {
         let mut camera = Camera2D::from_display_rect(macroquad::math::Rect::new(
-            0.0,
+            -shift,
             0.0,
             SCREEN_WIDTH as f32,
             SCREEN_HEIGHT as f32,
         ));
         camera.render_target = Some(self.buffer.clone());
-        set_camera(&camera);
+        camera
+    }
 
-        clear_background(self.palette.navy);
+    /// Draws a frame into the buffer.
+    pub fn draw(&self, app: &App, effects: &Effects) {
+        let (board, panel) = (app.board_offset(), app.panel_offset());
+        let fixed = self.camera(0.0);
+        let on_board = self.camera(board);
+
+        set_camera(&fixed);
+        draw_texture(&self.assets.backdrop, 0.0, 0.0, WHITE);
+
+        set_camera(&self.camera(panel));
+        if panel < PANEL_SLIDE {
+            self.glass(PANEL_CARD, panel);
+            self.draw_panel(app);
+        }
+
+        set_camera(&on_board);
         self.draw_board(app, effects);
-        self.draw_panel(app);
-        effects.draw();
+        effects.draw_on_board();
         if let Some((x, y)) = effects.banner_text_at() {
             self.text(app.strings().brilliant, x, y, self.palette.gold);
         }
         if let Some((_, to)) = app.session.promotion() {
             self.draw_promotion_menu(app, to);
         }
+
+        set_camera(&fixed);
+        self.draw_tab(app);
         if let Some(setup) = &app.setup {
             self.draw_dialog(app, setup);
+        }
+        effects.draw_on_screen();
+    }
+
+    /// Frosted glass: the blurred backdrop, a tint, a lit top edge and a thin rim.
+    fn glass(&self, rect: Area, shift: f32) {
+        let palette = &self.palette;
+        draw_texture_ex(
+            &self.assets.backdrop_blur,
+            rect.x,
+            rect.y,
+            WHITE,
+            DrawTextureParams {
+                source: Some(macroquad::math::Rect::new(
+                    rect.x + shift,
+                    rect.y,
+                    rect.w,
+                    rect.h,
+                )),
+                ..Default::default()
+            },
+        );
+        fill(rect, with_alpha(palette.sky, GLASS_TINT));
+        let (right, bottom) = (rect.x + rect.w, rect.y + rect.h);
+        let rim = with_alpha(palette.cream, GLASS_RIM);
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            1.0,
+            with_alpha(palette.cream, GLASS_SHINE),
+        );
+        draw_rectangle(rect.x, bottom - 1.0, rect.w, 1.0, rim);
+        draw_rectangle(rect.x, rect.y + 1.0, 1.0, rect.h - 2.0, rim);
+        draw_rectangle(right - 1.0, rect.y + 1.0, 1.0, rect.h - 2.0, rim);
+    }
+
+    /// The tab that hides and shows the panel, with an arrow pointing where it goes.
+    fn draw_tab(&self, app: &App) {
+        let tab = PANEL_TAB;
+        self.glass(tab, 0.0);
+        let color = self.palette.gold;
+        let middle = tab.y + (tab.h / 2.0).floor();
+        let x = tab.x + 4.0;
+        for i in 0..4 {
+            let step = f32::from(i as u8);
+            let column = if app.panel_open {
+                x + step
+            } else {
+                x + 3.0 - step
+            };
+            draw_rectangle(column, middle - 3.0 + step, 1.0, 7.0 - 2.0 * step, color);
         }
     }
 
@@ -219,8 +293,7 @@ impl Renderer {
         let palette = &self.palette;
         let screen = Area::new(0.0, 0.0, SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32);
         fill(screen, with_alpha(palette.ink, DIM_ALPHA));
-        fill(DIALOG, palette.navy);
-        outline(DIALOG, palette.gold);
+        self.glass(DIALOG, 0.0);
         self.text(s.new_game, DIALOG.x + 8.0, DIALOG.y + 15.0, palette.gold);
         self.text(s.bot_level, DIALOG.x + 8.0, DIALOG.y + 30.0, palette.sky);
         for (level, rect) in layout::level_buttons() {
@@ -243,10 +316,16 @@ impl Renderer {
         let (body, ink) = if active {
             (palette.gold, palette.ink)
         } else {
-            (palette.blue, palette.cream)
+            (with_alpha(palette.blue, BUTTON_ALPHA), palette.cream)
         };
         fill(rect, body);
-        outline(rect, palette.sky);
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            1.0,
+            with_alpha(palette.cream, GLASS_RIM),
+        );
         let x = rect.x + (rect.w - self.width(label)) / 2.0;
         self.text(label, x, rect.y + rect.h / 2.0 + 5.0, ink);
     }

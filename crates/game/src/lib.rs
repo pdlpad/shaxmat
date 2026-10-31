@@ -10,6 +10,7 @@ pub mod layout;
 pub mod palette;
 pub mod render;
 pub mod session;
+pub mod window;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod demo;
