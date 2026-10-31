@@ -1,0 +1,16 @@
+[package]
+name = "shaxmat-engine"
+description = "Chess search, evaluation and strength levels for SHAXMAT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "shaxmat_engine"
+
+[dependencies]
+shaxmat-core = { path = "../core" }
+
+[dev-dependencies]
+proptest = "1"

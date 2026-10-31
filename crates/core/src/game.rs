@@ -122,6 +122,11 @@ impl Game {
         &self.moves
     }
 
+    /// Repetition keys of [`Game::positions`], for search draw detection.
+    pub fn repetition_keys(&self) -> &[Zobrist64] {
+        &self.keys
+    }
+
     /// Moves played, in SAN with check and mate suffixes.
     pub fn sans(&self) -> Vec<String> {
         self.sans.iter().map(ToString::to_string).collect()
