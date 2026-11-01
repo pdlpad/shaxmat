@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+      - run: cargo build --release -p shaxmat-game --bin shaxmat
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Copy-Item target/release/shaxmat.exe, NOTICE.md, assets/font/OFL.txt, assets/LICENSE-pixelfx.txt dist
+          Compress-Archive -Path dist/* -DestinationPath "shaxmat-$env:GITHUB_REF_NAME-windows-x64.zip"
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create $env:GITHUB_REF_NAME "shaxmat-$env:GITHUB_REF_NAME-windows-x64.zip"
+          --prerelease --title "SHAXMAT $env:GITHUB_REF_NAME"
+          --notes-file .github/release-notes.md
